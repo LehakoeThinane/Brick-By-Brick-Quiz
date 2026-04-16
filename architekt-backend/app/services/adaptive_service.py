@@ -36,15 +36,33 @@ def _fetch_user_avg_difficulty_by_category(db: Session, user_id: uuid.UUID) -> d
     return {row[0]: float(row[1]) for row in rows if row[0] is not None and row[1] is not None}
 
 
-def _fetch_profile_state_by_category(db: Session, user_id: uuid.UUID) -> dict[uuid.UUID, MasteryState]:
+def _fetch_profile_state_by_category(
+    db: Session,
+    user_id: uuid.UUID,
+    now: datetime,
+) -> dict[uuid.UUID, MasteryState]:
     rows = db.execute(
-        select(MasteryProfile.category_id, MasteryProfile.mastery_state).where(
+        select(MasteryProfile.category_id, MasteryProfile.mastery_state, MasteryProfile.last_attempted_at).where(
             MasteryProfile.user_id == user_id,
             MasteryProfile.category_id.is_not(None),
             MasteryProfile.mastery_state.is_not(None),
         )
     ).all()
-    return {row[0]: row[1] for row in rows if row[0] is not None}
+    state_by_category: dict[uuid.UUID, MasteryState] = {}
+    for category_id, state, last_attempted_at in rows:
+        if category_id is None or state is None:
+            continue
+
+        # PRD: MASTERED topics are retested every 30 days.
+        if state == MasteryState.MASTERED and last_attempted_at is not None:
+            days_since_attempt = (now - last_attempted_at).days
+            if days_since_attempt >= 30:
+                state_by_category[category_id] = MasteryState.DEVELOPING
+                continue
+
+        state_by_category[category_id] = state
+
+    return state_by_category
 
 
 def _fetch_session_served_categories(db: Session, session_id: uuid.UUID) -> set[uuid.UUID]:
@@ -144,7 +162,7 @@ def select_next_question(
     now = datetime.utcnow()
     last_seen_map = _fetch_last_seen_map(db, session.user_id)
     avg_difficulty_map = _fetch_user_avg_difficulty_by_category(db, session.user_id)
-    state_map = _fetch_profile_state_by_category(db, session.user_id)
+    state_map = _fetch_profile_state_by_category(db, session.user_id, now)
 
     struggling_categories = _fetch_struggling_categories(db, session.user_id)
     served_categories = _fetch_session_served_categories(db, session.id)

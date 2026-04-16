@@ -10,7 +10,6 @@ from app.api.deps import get_current_user
 from app.models.user import User
 from app.models.question import Question
 from app.models.enums import ReviewStatus, QuestionSource, QuestionType
-from app.services.ai_generator import generate_questions_with_ai
 
 router = APIRouter()
 
@@ -29,6 +28,9 @@ async def trigger_ai_generation(
     Generates draft questions from AI. These are NOT live until approved.
     """
     try:
+        # Lazy import so backend MVP can boot even if AI dependencies aren't configured.
+        from app.services.ai_generator import generate_questions_with_ai
+
         raw_questions = await generate_questions_with_ai(payload.topic, payload.count)
         
         db_questions = []

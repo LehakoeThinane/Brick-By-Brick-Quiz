@@ -14,12 +14,14 @@ class QuizSession(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
     user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
-    mode: Mapped[QuizMode | None] = mapped_column(SQLEnum(QuizMode, name="quiz_mode"), nullable=True)
+    mode: Mapped[QuizMode | None] = mapped_column(
+        SQLEnum(QuizMode, name="quiz_mode", values_callable=lambda x: [e.value for e in x]), nullable=True
+    )
     category_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("categories.id"), nullable=True
     )
     status: Mapped[QuizSessionStatus | None] = mapped_column(
-        SQLEnum(QuizSessionStatus, name="quiz_session_status"),
+        SQLEnum(QuizSessionStatus, name="quiz_session_status", values_callable=lambda x: [e.value for e in x]),
         nullable=True,
     )
     total_questions: Mapped[int] = mapped_column(Integer, nullable=False)

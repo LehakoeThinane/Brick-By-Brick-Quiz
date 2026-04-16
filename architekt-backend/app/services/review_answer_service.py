@@ -8,30 +8,46 @@ from app.models.enums import ReviewStatus
 from app.models.question import Question
 from app.models.review_queue import ReviewQueue
 from app.schemas.review_queue import ReviewQueueAnswerResponse, ReviewQueueItem, ReviewQueueSummaryResponse
-from app.services.quiz_core_service import evaluate_and_store_attempt
+from app.services.quiz_core_service import evaluate_and_store_attempt, normalize_options
 
 
 def get_review_queue(db: Session, *, user_id: uuid.UUID) -> list[ReviewQueueItem]:
-    rows = db.scalars(
-        select(ReviewQueue)
+    rows = db.execute(
+        select(ReviewQueue, Question)
+        .join(Question, Question.id == ReviewQueue.question_id)
         .where(
             ReviewQueue.user_id == user_id,
             ReviewQueue.reviewed_at.is_(None),
+            Question.review_status == ReviewStatus.APPROVED,
         )
         .order_by(ReviewQueue.priority_score.desc(), ReviewQueue.added_at.asc())
     ).all()
 
-    return [
-        ReviewQueueItem(
-            id=row.id,
-            question_id=row.question_id,
-            priority_score=float(row.priority_score),
-            reason=row.reason,
-            added_at=row.added_at,
-            reviewed_at=row.reviewed_at,
+    result: list[ReviewQueueItem] = []
+    for queue_item, question in rows:
+        result.append(
+            ReviewQueueItem(
+                id=queue_item.id,
+                question_id=queue_item.question_id,
+                question_version=question.version,
+                category_id=question.category_id,
+                subcategory=question.subcategory,
+                tags=question.tags,
+                difficulty=question.difficulty,
+                question_type=question.question_type,
+                question_text=question.question_text,
+                options=normalize_options(question.options),
+                hint=question.hint,
+                correct_answer=question.correct_answer,
+                explanation=question.explanation,
+                priority_score=float(queue_item.priority_score),
+                reason=queue_item.reason,
+                added_at=queue_item.added_at,
+                reviewed_at=queue_item.reviewed_at,
+            )
         )
-        for row in rows
-    ]
+
+    return result
 
 
 def get_review_queue_summary(db: Session, *, user_id: uuid.UUID) -> ReviewQueueSummaryResponse:

@@ -47,3 +47,5 @@ class SessionResultsResponse(BaseModel):
     correct_count: int
     accuracy_percent: float
     weak_topics: list[str]
+    average_response_time_ms: int | None = None
+    total_time_ms: int | None = None

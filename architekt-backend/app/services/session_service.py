@@ -18,6 +18,7 @@ from app.services.quiz_core_service import (
     fetch_session_answered_question_ids,
     fetch_session_attempt_count,
     get_or_expire_active_session,
+    normalize_options,
     new_session_expiry,
     utc_now_naive,
 )
@@ -93,7 +94,7 @@ def get_next_question(db: Session, *, user_id: uuid.UUID, session_id: uuid.UUID)
             difficulty=question.difficulty,
             question_type=question.question_type,
             question_text=question.question_text,
-            options=question.options,
+            options=normalize_options(question.options),
             hint=question.hint,
         ),
     )
@@ -176,10 +177,20 @@ def get_session_results(db: Session, *, user_id: uuid.UUID, session_id: uuid.UUI
     accuracy = 0.0 if total_answered == 0 else round((session.correct_count / total_answered) * 100, 2)
 
     weak_topics = build_weak_topic_names(db, user_id=user_id)
+
+    avg_response_time_ms = db.scalar(
+        select(func.avg(AnswerAttempt.response_time_ms)).where(AnswerAttempt.session_id == session.id)
+    )
+    total_time_ms = None
+    if session.completed_at is not None and session.started_at is not None:
+        total_time_ms = int((session.completed_at - session.started_at).total_seconds() * 1000)
+
     return SessionResultsResponse(
         session_id=session.id,
         total_questions=total_questions,
         correct_count=session.correct_count,
         accuracy_percent=accuracy,
         weak_topics=weak_topics,
+        average_response_time_ms=None if avg_response_time_ms is None else int(avg_response_time_ms),
+        total_time_ms=total_time_ms,
     )

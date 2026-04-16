@@ -22,7 +22,9 @@ class Question(Base):
     tags: Mapped[list[str] | None] = mapped_column(ARRAY(Text), nullable=True)
     difficulty: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     question_type: Mapped[QuestionType | None] = mapped_column(
-        SQLEnum(QuestionType, name="question_type"),
+        # PRD + migration create the Postgres ENUM with lowercase values (e.g. "scenario"),
+        # so we must persist Python Enum *values* not member names (e.g. "SCENARIO").
+        SQLEnum(QuestionType, name="question_type", values_callable=lambda x: [e.value for e in x]),
         nullable=True,
     )
     question_text: Mapped[str] = mapped_column(Text, nullable=False)
@@ -32,11 +34,11 @@ class Question(Base):
     hint: Mapped[str | None] = mapped_column(Text, nullable=True)
     related_concepts: Mapped[list[str] | None] = mapped_column(ARRAY(Text), nullable=True)
     source: Mapped[QuestionSource | None] = mapped_column(
-        SQLEnum(QuestionSource, name="question_source"),
+        SQLEnum(QuestionSource, name="question_source", values_callable=lambda x: [e.value for e in x]),
         nullable=True,
     )
     review_status: Mapped[ReviewStatus | None] = mapped_column(
-        SQLEnum(ReviewStatus, name="review_status"),
+        SQLEnum(ReviewStatus, name="review_status", values_callable=lambda x: [e.value for e in x]),
         nullable=True,
     )
     times_answered: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

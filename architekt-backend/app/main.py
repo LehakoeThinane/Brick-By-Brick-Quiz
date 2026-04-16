@@ -17,8 +17,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
-app.include_router(sessions.router, prefix="/sessions", tags=["Quiz Sessions"])
+app.include_router(auth_router, tags=["Authentication"])
+app.include_router(sessions.router, tags=["Quiz Sessions"])
 app.include_router(offline.router, prefix="/offline", tags=["Offline Sync"])
 app.include_router(analytics.router, prefix="/analytics", tags=["Observability"])
 app.include_router(content.router, prefix="/admin/content", tags=["AI Content Generation"])

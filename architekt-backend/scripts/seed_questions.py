@@ -444,6 +444,10 @@ ALL_QUESTIONS = QUESTIONS + additional_questions
 def seed_db():
     db: Session = SessionLocal()
     try:
+        def enum_value(v):
+            # Ensure we store Postgres ENUM *values* (e.g. "scenario"), not enum member names.
+            return getattr(v, "value", v)
+
         # Seed Categories
         print("Seeding Categories...")
         cat_map = {}
@@ -474,15 +478,15 @@ def seed_db():
                     subcategory=q_data["subcategory"],
                     tags=q_data["tags"],
                     difficulty=q_data["difficulty"],
-                    question_type=q_data["question_type"],
+                    question_type=enum_value(q_data["question_type"]),
                     question_text=q_data["question_text"],
                     options=q_data["options"],
                     correct_answer=q_data["correct_answer"],
                     explanation=q_data["explanation"],
                     hint=q_data["hint"],
                     related_concepts=q_data["related_concepts"],
-                    source=QuestionSource.MANUAL,
-                    review_status=ReviewStatus.APPROVED,
+                    source=enum_value(QuestionSource.MANUAL),
+                    review_status=enum_value(ReviewStatus.APPROVED),
                     times_answered=0,
                     times_correct=0,
                     created_at=datetime.utcnow(),

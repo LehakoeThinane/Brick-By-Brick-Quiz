@@ -26,10 +26,15 @@ class AnswerAttempt(Base):
     is_correct: Mapped[bool] = mapped_column(Boolean, nullable=False)
     response_time_ms: Mapped[int] = mapped_column(Integer, nullable=False)
     mastery_signal: Mapped[MasterySignal | None] = mapped_column(
-        SQLEnum(MasterySignal, name="mastery_signal"),
+        SQLEnum(MasterySignal, name="mastery_signal", values_callable=lambda x: [e.value for e in x]),
         nullable=True,
     )
     answered_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     client_attempt_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), unique=True, nullable=True)
-    sync_status: Mapped[SyncStatus | None] = mapped_column(SQLEnum(SyncStatus, name="sync_status"), nullable=True)
+    # PRD/migrations define lowercase enum values (e.g. "pending"), so persist enum *values*.
+    # Without this, SQLAlchemy can bind enum member names (e.g. "PENDING").
+    sync_status: Mapped[SyncStatus | None] = mapped_column(
+        SQLEnum(SyncStatus, name="sync_status", values_callable=lambda x: [e.value for e in x]),
+        nullable=True,
+    )
     synced_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

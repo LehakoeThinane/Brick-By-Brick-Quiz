@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
@@ -17,6 +18,29 @@ from app.models.review_queue import ReviewQueue
 
 def utc_now_naive() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def normalize_options(options: dict[str, Any] | list[Any] | None) -> dict[str, Any] | list[Any]:
+    """
+    Convert question options into the PRD-friendly canonical form:
+    - Input: { "A": "text", "B": "text", ... }
+    - Output: [ { "key": "A", "text": "text" }, ... ]
+    """
+    if options is None:
+        return []
+
+    if isinstance(options, dict):
+        def to_text(v: Any) -> str:
+            if isinstance(v, str):
+                return v
+            if isinstance(v, dict) and "text" in v:
+                return str(v["text"])
+            return str(v)
+
+        # Sort by option key for deterministic ordering (A..D)
+        return [{"key": k, "text": to_text(v)} for k, v in sorted(options.items(), key=lambda kv: kv[0])]
+
+    return options
 
 
 def evaluate_and_store_attempt(
@@ -194,10 +218,22 @@ def get_or_expire_active_session(db: Session, *, session_id: uuid.UUID, user_id:
         return session
 
     if session.expires_at <= now:
+        # PRD: expired sessions are treated like completed sessions for reinforcement loops.
+        # Rebuild review queue from the user's mastery state at the moment of expiry.
+        from app.services.review_queue_service import rebuild_review_queue
+
         session.status = QuizSessionStatus.EXPIRED
         session.completed_at = now
         db.add(session)
+        rebuild_review_queue(db, user_id=user_id)
         db.commit()
+
+        return session
+
+    # PRD: sessions expire after 60 minutes of inactivity, so each activity extends the expiry window.
+    session.expires_at = now + timedelta(minutes=60)
+    db.add(session)
+    db.commit()
     return session
 
 

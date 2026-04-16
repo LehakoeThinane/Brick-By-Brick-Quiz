@@ -1,123 +1,177 @@
-import React, { useEffect, useState } from 'react';
-import { useQuizStore } from '../store/useQuizStore';
-import { initDB } from '../db';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ApiError, getNextQuestion, submitAnswer } from '../api/client';
 import { EvaluationReveal } from './EvaluationReveal';
 
-export const QuizSession: React.FC = () => {
-  const { session, markQuestionStart, submitAnswer } = useQuizStore();
-  const [currentQuestion, setCurrentQuestion] = useState<any>(null);
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  
-  // Local temporary state purely for UX while offline. Not saved to backend DB.
-  const [hasSubmitted, setHasSubmitted] = useState(false);
-  const [isCorrect, setIsCorrect] = useState(false);
+type Props = {
+  token: string;
+  sessionId: string;
+  onCompleted: () => void;
+};
 
-  useEffect(() => {
-    // If we have an active session, load the current question from IDB
-    const loadQuestion = async () => {
-      if (!session || session.completed) return;
-      
-      const currentId = session.questionIds[session.currentIndex];
-      const db = await initDB();
-      const nextQuestion = await db.get('questions', currentId);
-      
-      setCurrentQuestion(nextQuestion);
+type QuizQuestion = {
+  id: string;
+  version: number;
+  subcategory: string | null;
+  difficulty: number | null;
+  question_number: number;
+  total_questions: number;
+  question_text: string;
+  options: Array<{ key: string; text: string }> | Record<string, unknown>;
+  hint: string | null;
+};
+
+function normalizeOptions(options: QuizQuestion['options']): Array<{ key: string; text: string }> {
+  if (Array.isArray(options)) {
+    return options.map((o) => ({ key: String(o.key), text: String(o.text) }));
+  }
+  return Object.entries(options).map(([key, value]) => ({ key, text: String(value) }));
+}
+
+export function QuizSession({ token, sessionId, onCompleted }: Props) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [question, setQuestion] = useState<QuizQuestion | null>(null);
+
+  const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCorrect, setIsCorrect] = useState(false);
+  const [explanation, setExplanation] = useState<string>('');
+  const [correctAnswer, setCorrectAnswer] = useState<string>('');
+
+  const questionStartRef = useRef<number | null>(null);
+  const optionsList = useMemo(() => (question ? normalizeOptions(question.options) : []), [question]);
+
+  const loadNext = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await getNextQuestion(token, sessionId);
+      setQuestion({
+        id: res.question.id,
+        version: res.question.version,
+        subcategory: res.question.subcategory,
+        difficulty: res.question.difficulty,
+        question_text: res.question.question_text,
+        options: res.question.options,
+        hint: res.question.hint,
+        question_number: res.question_number,
+        total_questions: res.total_questions,
+      });
       setSelectedOption(null);
       setHasSubmitted(false);
-      
-      // Begin exact timing measurement for Mastery Engine
-      markQuestionStart();
-    };
-
-    loadQuestion();
-  }, [session?.currentIndex, session?.completed]);
-
-  if (!session) {
-    return <div className="p-8 text-center text-gray-400">No active session.</div>;
-  }
-  
-  if (session.completed) {
-    return (
-      <div className="glass-panel text-center p-12 animate-fade-in max-w-2xl mx-auto mt-12">
-        <h2 className="text-3xl font-bold text-white mb-4">Session Complete</h2>
-        <p className="text-gray-400 mb-8 max-w-sm mx-auto">
-          Your offline attempts have been queued. They will automatically sync with the ARCHITEKT Mastery Engine once your connection is restored.
-        </p>
-        <button className="btn-primary" onClick={() => useQuizStore.getState().clearSession()}>
-          Return to Dashboard
-        </button>
-      </div>
-    );
-  }
-
-  if (!currentQuestion) return <div className="p-8 text-center">Loading...</div>;
-
-  const handleSubmit = async () => {
-    if (!selectedOption || hasSubmitted) return;
-    
-    // Evaluate correctness temporarily purely for visual reveal
-    const evaluatedCorrect = selectedOption === currentQuestion.correct_answer;
-    setIsCorrect(evaluatedCorrect);
-    setHasSubmitted(true);
-    
-    // Submit answer payload securely to the IDB queue. The exact performance.now() delta is computed natively inside.
-    await submitAnswer(currentQuestion.id, selectedOption);
+      setIsCorrect(false);
+      setExplanation('');
+      setCorrectAnswer('');
+    } catch (e) {
+      const err = e as ApiError;
+      if (err?.status === 409) {
+        onCompleted();
+        return;
+      }
+      setError(e instanceof Error ? e.message : 'Failed to load next question');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  useEffect(() => {
+    loadNext();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, sessionId]);
+
+  useEffect(() => {
+    if (question) questionStartRef.current = performance.now();
+  }, [question?.id]);
+
+  const doSubmit = async () => {
+    if (!question || !selectedOption || questionStartRef.current === null || hasSubmitted || isSubmitting) return;
+
+    const response_time_ms = Math.round(performance.now() - questionStartRef.current);
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      const res = await submitAnswer(token, sessionId, {
+        question_id: question.id,
+        question_version: question.version,
+        submitted_answer: selectedOption,
+        response_time_ms,
+      });
+      setIsCorrect(res.is_correct);
+      setExplanation(res.explanation);
+      setCorrectAnswer(res.correct_answer);
+      setHasSubmitted(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to submit answer');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleNext = async () => {
+    setSelectedOption(null);
+    setHasSubmitted(false);
+    setIsSubmitting(false);
+    setIsCorrect(false);
+    setExplanation('');
+    setCorrectAnswer('');
+    await loadNext();
+  };
+
+  if (loading) return <div className="p-8 text-center text-gray-400">Loading question...</div>;
+  if (error) return <div className="p-8 text-center text-red-300">{error}</div>;
+  if (!question) return <div className="p-8 text-center text-gray-400">No question available.</div>;
 
   return (
     <div className="max-w-3xl mx-auto mt-12 px-4 animate-fade-in pb-24">
-      {/* Quiz Progress Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <span className="text-sm font-semibold tracking-wider text-brand-500 uppercase">
-            {currentQuestion.subcategory}
-          </span>
-          <h2 className="text-2xl font-bold text-white mt-1">Difficulty: {currentQuestion.difficulty}</h2>
+          <span className="text-sm font-semibold tracking-wider text-brand-500 uppercase">{question.subcategory ?? 'Quiz'}</span>
+          <h2 className="text-2xl font-bold text-white mt-1">Difficulty: {question.difficulty ?? '—'}</h2>
         </div>
-        <div className="text-gray-400 font-medium font-sans">
-          Question {session.currentIndex + 1} / {session.questionIds.length}
+        <div className="text-gray-400 font-medium">
+          Question {question.question_number} / {question.total_questions}
         </div>
       </div>
-      
-      {/* Question Card */}
+
       <div className="glass-panel p-8 mb-6">
-        <p className="text-xl leading-relaxed text-gray-100 font-medium mb-8">
-          {currentQuestion.question_text}
-        </p>
-        
+        <p className="text-xl leading-relaxed text-gray-100 font-medium mb-8">{question.question_text}</p>
+
         <div className="space-y-3">
-          {Object.entries(currentQuestion.options).map(([key, value]) => {
-            const isSelected = selectedOption === key;
-            const isFinished = hasSubmitted;
-            const OptionCorrectlyMarked = isFinished && key === currentQuestion.correct_answer;
-            const OptionWronglySelected = isFinished && isSelected && !isCorrect;
+          {optionsList.map((opt) => {
+            const isSelected = selectedOption === opt.key;
+            const isFinished = hasSubmitted || isSubmitting;
+            const optionCorrectlyMarked = isFinished && opt.key === correctAnswer;
+            const optionWronglySelected = isFinished && isSelected && !isCorrect;
 
             let extraClasses = '';
             if (isFinished) {
-               if (OptionCorrectlyMarked) extraClasses = 'border-green-500 bg-green-500/10';
-               else if (OptionWronglySelected) extraClasses = 'border-red-500 bg-red-500/10 opacity-70';
-               else extraClasses = 'opacity-40 cursor-not-allowed';
+              if (optionCorrectlyMarked) extraClasses = 'border-green-500 bg-green-500/10';
+              else if (optionWronglySelected) extraClasses = 'border-red-500 bg-red-500/10 opacity-70';
+              else extraClasses = 'opacity-40 cursor-not-allowed';
             }
 
             return (
               <button
-                key={key}
+                key={opt.key}
                 disabled={isFinished}
-                onClick={() => setSelectedOption(key)}
+                onClick={() => setSelectedOption(opt.key)}
                 className={`option-card ${isSelected && !isFinished ? 'selected' : ''} ${extraClasses}`}
               >
-                <div className={`w-8 h-8 flex items-center justify-center rounded border text-sm font-bold transition-colors ${
-                  isSelected && !isFinished 
-                  ? 'bg-brand-500 border-brand-500 text-white' 
-                  : OptionCorrectlyMarked 
-                    ? 'bg-green-500 border-green-500 text-white'
-                    : OptionWronglySelected
-                      ? 'bg-red-500 border-red-500 text-white'
-                      : 'border-dark-border text-gray-400'
-                }`}>
-                  {key}
+                <div
+                  className={`w-8 h-8 flex items-center justify-center rounded border text-sm font-bold transition-colors ${
+                    isSelected && !isFinished
+                      ? 'bg-brand-500 border-brand-500 text-white'
+                      : optionCorrectlyMarked
+                        ? 'bg-green-500 border-green-500 text-white'
+                        : optionWronglySelected
+                          ? 'bg-red-500 border-red-500 text-white'
+                          : 'border-dark-border text-gray-400'
+                  }`}
+                >
+                  {opt.key}
                 </div>
-                <span className="text-left flex-1 font-medium text-gray-200">{String(value)}</span>
+                <span className="text-left flex-1 font-medium text-gray-200">{opt.text}</span>
               </button>
             );
           })}
@@ -126,27 +180,14 @@ export const QuizSession: React.FC = () => {
 
       {!hasSubmitted ? (
         <div className="flex justify-end animate-fade-in delay-150">
-           <button 
-             onClick={handleSubmit} 
-             disabled={!selectedOption} 
-             className="btn-primary"
-           >
-             Submit Answer
-           </button>
+          <button onClick={doSubmit} disabled={!selectedOption || isSubmitting} className="btn-primary">
+            Submit Answer
+          </button>
         </div>
       ) : (
-        <EvaluationReveal 
-          isCorrect={isCorrect}
-          explanation={currentQuestion.explanation}
-          correctAnswer={currentQuestion.correct_answer}
-          onNext={() => {
-            // Note: Our Zustand store already moved the index forward!
-            // When we clear the submission flags here, the effect hook will re-render the next question.
-            setHasSubmitted(false);
-            setSelectedOption(null);
-          }}
-        />
+        <EvaluationReveal isCorrect={isCorrect} explanation={explanation} correctAnswer={correctAnswer} onNext={handleNext} />
       )}
     </div>
   );
-};
+}
+
