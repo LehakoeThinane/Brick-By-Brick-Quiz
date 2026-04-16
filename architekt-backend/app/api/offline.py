@@ -47,32 +47,25 @@ def get_offline_bootstrap(
     }
 
 
-@router.post("/sync/attempts", summary="Sync offline answer attempts")
+@router.post("/sync/attempts", summary="Synchronous Offline Attempt Sync Engine")
 def sync_offline_attempts(
     payload: SyncRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    queued_ids = []
-    for attempt in payload.attempts:
-        # Idempotency check
-        existing = db.execute(
-            select(OfflineSyncQueue).where(
-                OfflineSyncQueue.client_attempt_id == attempt.client_attempt_id
-            )
-        ).scalar_one_or_none()
+    attempts_data = [attempt.model_dump(mode="json") for attempt in payload.attempts]
+    
+    from app.services.sync_processor import process_sync_batch
+    resolution = process_sync_batch(db, current_user.id, attempts_data)
 
-        if not existing:
-            queue_item = OfflineSyncQueue(
-                id=uuid.uuid4(),
-                user_id=current_user.id,
-                client_attempt_id=attempt.client_attempt_id,
-                payload=attempt.model_dump(mode="json"),
-                status=SyncStatus.PENDING
-            )
-            db.add(queue_item)
-            queued_ids.append(queue_item.client_attempt_id)
+    return resolution
 
-    db.commit()
+@router.post("/sync/sweep", summary="Trigger the lightweight fallback sweeper")
+def sweep_stuck_offline_queue(
+    current_user: User = Depends(get_current_user), # Expect Admin role in prod
+    db: Session = Depends(get_db)
+):
+    from app.services.sync_processor import recover_stuck_attempts
+    res = recover_stuck_attempts(db)
+    return {"message": "Sweeper finished", "items_swept": res["swept"]}
 
-    return {"message": "Sync payload received", "queued_items": len(queued_ids)}

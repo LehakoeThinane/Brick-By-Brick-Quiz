@@ -41,5 +41,6 @@ class Question(Base):
     )
     times_answered: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     times_correct: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    ai_metadata: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)

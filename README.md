@@ -24,18 +24,30 @@ ARCHITEKT is an **Offline-First PWA** powered by:
 - Idempotent backend synchronization logic (`client_attempt_id`), recalculating mastery profiles server-side upon reconnect.
 
 ## Running the Application
-Ensure Postgres is running locally.
+Ensure Postgres is running locally on port `5432`.
 
-### Setup Backend:
-```bash
+### 1. Database & Backend Setup:
+```powershell
 cd architekt-backend
-python -m venv venv
 .\venv\Scripts\activate
 pip install -r requirements.txt
-```
 
-### Seed Data:
-Run the seed script to place 50 high-quality, approved scenario questions across 5 core categories into the database.
-```bash
+# Apply the latest Offline PWA Sync tables:
+alembic upgrade head
+
+# Seed 50 questions (only run once):
 python scripts/seed_questions.py
+
+# Start the FastAPI engine:
+uvicorn app.main:app --reload
 ```
+The backend will boot on `http://127.0.0.1:8000`.
+
+### 2. Frontend React PWA:
+Open a second terminal:
+```powershell
+cd architekt-frontend
+npm install
+npm run dev
+```
+Navigate to `http://localhost:5173` in your browser. The frontend is fully indexed for offline-compatibility.
