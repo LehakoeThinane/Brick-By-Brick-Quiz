@@ -1,0 +1,246 @@
+PRODUCT REQUIREMENTS &
+SYSTEM ARCHITECTURE DOCUMENT
+ARCHITEKT
+Adaptive Technical Mastery Quiz Platform
+Table of Contents
+1.  Product Definition    3
+2.  MVP Scope    4
+3.  Learning Domains & Content Structure    5
+4.  System Architecture & Layered Design    6
+5.  System Modules    7
+6.  Data Model    9
+7.  Question Schema    11
+8.  Mastery State Machine    12
+9.  Adaptive Engine Specification    13
+10.  Business Logic Rules    14
+11.  User Flow    15
+12.  Screen Inventory    16
+13.  Tech Stack Decision    17
+14.  Observability & Instrumentation    18
+15.  Phased Build Plan    19
+16.  Content Seed Plan    21
+1. Product Definition
+1.1 Product Name
+ARCHITEKT — Adaptive Technical Mastery Quiz Platform
+1.2 Who Is This For
+Version 1 is built for a single user: the builder. This is a personal technical learning tool, not a SaaS product. The initial audience is one person learning systems design, solutions architecture, software architecture, backend engineering, APIs, DevOps, automation, and AI concepts through structured, adaptive quizzes.
+1.3 Product Goal
+To accelerate technical fluency through active recall and spaced repetition. The platform presents scenario-based, multiple-choice, and definition questions across technical domains. It tracks correctness, speed, and topic-level mastery, then surfaces weak areas for reinforcement. The goal is not to passively read — it is to repeatedly test until knowledge is internalized.
+1.4 Definition of Success
+Success is measurable. The user can be considered to have reached competency in a topic when:
+They answer 4 consecutive questions in that topic correctly
+Their average response time drops below 30 seconds for that topic
+Their accuracy in that topic exceeds 85% over the last 10 attempts
+2. MVP Scope
+2.1 What Version 1 Does
+The MVP is deliberately narrow. It does one job well: test, evaluate, track, and reinforce.
+3. Learning Domains & Content Structure
+3.1 Primary Categories
+The quiz platform is organized into 10 primary learning domains. Each domain contains terms, definitions, scenarios, and trade-off questions.
+3.2 Question Types per Domain
+Each domain supports four question archetypes:
+Definition: "What is a circuit breaker pattern?"
+Scenario: "Your API is failing 20% of requests under load. Which pattern addresses this?"
+Trade-off: "You are choosing between eventual and strong consistency. What does each sacrifice?"
+Identification: "Which of these is NOT a valid use case for GraphQL?"
+4. System Architecture & Layered Design
+ARCHITEKT follows a strict four-layer architecture. Each layer has a single responsibility. No layer reaches past its neighbor.
+4.1 Architecture Layers
+4.2 Architecture Principle
+4.3 High-Level Component Topology
+The following describes the runtime interaction pattern between components:
+Browser (React SPA) communicates exclusively with the FastAPI backend via HTTPS REST calls
+FastAPI routes delegate to Application Service classes which coordinate Domain logic
+Domain Layer contains no I/O — it receives data, applies rules, returns decisions
+Infrastructure Layer handles PostgreSQL reads/writes, JWT validation, and any future caching
+No direct database access from the Presentation or Application layers — always via repository interfaces
+5. System Modules
+The system is composed of seven core modules. Each module has a clear boundary, single responsibility, and defined interface contracts.
+5.1 Question Management Module
+Rules & Constraints:
+Questions have a review_status field: draft, approved, or retired. Only approved questions enter quiz sessions.
+Question updates increment version. Historical attempts retain reference to the version answered.
+5.2 Quiz Session Module
+Rules & Constraints:
+A session cannot have duplicate questions.
+A session is marked complete when question quota is reached or user exits.
+Sessions have a timeout — inactive sessions expire after 60 minutes.
+5.3 Answer Evaluation Module
+Rules & Constraints:
+Correct + fast (under 20s) → STRONG mastery signal
+Correct + slow (20-45s) → PARTIAL mastery signal
+Correct + very slow (over 45s) → WEAK mastery signal
+Incorrect → MISS signal regardless of time
+5.4 Progress Tracking Module
+Rules & Constraints:
+Every attempt is stored permanently — no overwriting.
+Aggregates are recomputed on each attempt or cached with TTL.
+Rolling window statistics use the last 10 attempts per topic.
+5.5 Mastery State Machine
+Rules & Constraints:
+Six states: UNSEEN → ATTEMPTED → STRUGGLING → DEVELOPING → COMPETENT → MASTERED
+See Section 8 for full transition logic.
+5.6 Adaptive Selector Module
+Rules & Constraints:
+Priority Score = (Weakness Weight × 0.50) + (Days Since Seen × 0.30) + (Difficulty Match × 0.20)
+Questions in STRUGGLING state always receive maximum Weakness Weight.
+See Section 9 for full algorithm.
+5.7 Review & Reinforcement Module
+Rules & Constraints:
+Review Queue is rebuilt after every completed session.
+Topics with accuracy below 60% in the last 10 attempts are automatically queued.
+Review sessions are capped at 15 questions to prevent fatigue.
+6. Data Model
+The following entities form the PostgreSQL schema. Each entity is described with its fields, types, constraints, and relationships.
+6.x  users
+Stores the authenticated user record.
+6.x  categories
+Defines the 10 learning domains.
+6.x  questions
+The question bank. Core asset of the platform.
+6.x  quiz_sessions
+Tracks each quiz session lifecycle.
+6.x  answer_attempts
+Immutable log of every answer submitted. Never deleted or updated.
+6.x  mastery_profiles
+Tracks mastery state per user per topic. One row per user-category pair.
+6.x  review_queue
+Persists the next review session question list between logins.
+7. Question Schema
+Below is the canonical JSON representation of a question object as returned by the API. This is the contract between backend and frontend.
+8. Mastery State Machine
+The Mastery State Machine governs how topic-level competency is classified per user. It is a deterministic finite automaton with six states and defined transition triggers. This lives entirely in the Domain Layer — no I/O.
+8.1 State Definitions
+8.2 State Transitions
+Transitions are triggered after each answer attempt. Only one transition is evaluated per attempt, in priority order:
+9. Adaptive Engine Specification
+The Adaptive Selector is the intelligence layer of ARCHITEKT. It determines which question to serve next based on three weighted signals. It is deterministic — given the same inputs, it always produces the same output. No randomness.
+9.1 Priority Score Formula
+9.2 Signal Definitions
+9.3 Selection Algorithm
+On each call to select the next question:
+Retrieve all approved questions in the session's scope (category or all)
+Exclude questions already served in the current session
+Compute Priority Score for each remaining question using current mastery profile
+Sort descending by Priority Score
+Return the top-scored question
+9.4 Adaptive vs. Category Mode Difference
+10. Business Logic Rules
+These rules define the behaviour of the system in specific conditions. They live in the Domain Layer and are enforced by the Application Layer.
+10.1 Answer Evaluation Rules
+Correct + response ≤20s → STRONG mastery signal. Consecutive correct counter incremented.
+Correct + 20s < response ≤45s → PARTIAL mastery signal. No consecutive counter increment.
+Correct + response >45s → WEAK mastery signal. Consecutive counter reset to 0.
+Incorrect → MISS signal. Consecutive counter reset to 0. Topic weakness score increases.
+10.2 Session Rules
+A session must contain at least 5 questions to be counted in progress tracking.
+Maximum session length is 30 questions. Longer sessions reduce quality and increase fatigue.
+No question may appear twice in the same session.
+Sessions expire after 60 minutes of inactivity. Expired sessions are marked completed with partial data.
+10.3 Review Queue Rules
+Review Queue is rebuilt after every completed session.
+A topic enters the Review Queue if rolling accuracy drops below 60% in the last 10 attempts.
+A question enters the Review Queue if it has been answered incorrectly twice in the last 3 attempts.
+Review Queue is capped at 50 items. Lowest priority items are evicted when cap is reached.
+A review queue item is marked reviewed when the user answers that question correctly in any session.
+10.4 Mastery Decay Rule
+A topic in MASTERED state is retested every 30 days automatically.
+If rolling accuracy on retesting drops below 70%, state degrades to DEVELOPING.
+This prevents knowledge decay from being silent — the system surfaces it proactively.
+10.5 Content Quality Rules
+Questions in draft or retired status never enter quiz sessions.
+A question with times_answered ≥50 and a correct rate below 20% is flagged for review — it may be poorly worded.
+Questions flagged for review appear in the admin question bank with a warning indicator.
+11. User Flow
+This is the canonical user journey through the platform. Every screen and API endpoint maps to a step in this flow.
+11.1 Primary Quiz Flow
+User lands on Dashboard — sees mastery summary, weak topics, and session options
+User selects: Category Mode, Adaptive Mode, or Review Mode
+System creates a quiz session (POST /sessions) and serves first question
+User reads question and selects an answer option
+User submits answer (POST /sessions/{id}/answer)
+System evaluates answer, updates mastery profile, and returns evaluation result
+User sees: correct/incorrect indicator, explanation text, and time taken
+User proceeds to next question or session ends
+Session complete: Results Screen shows accuracy, weak topics identified, and review queue updated
+User is prompted to start a Review Session or return to Dashboard
+11.2 Review Flow
+User enters Review Mode from Dashboard or after session completion
+System loads Review Queue and creates a review session
+Questions are served in priority order from the Review Queue
+On correct answer: item is marked reviewed and removed from active queue
+On incorrect answer: item priority score is increased — appears sooner next time
+Review session ends after 15 questions or queue is exhausted
+12. Screen Inventory
+Version 1 requires exactly five screens. No more. Each screen has a defined purpose and API dependencies.
+13. Tech Stack Decision
+This is a committed decision, not a menu. Each choice is made for a specific architectural reason.
+14. Observability & Instrumentation
+Observability is not optional — it is how you know if the system is working as intended. This phase sits between Polish and AI Layer. Without it, the AI layer has no signal to improve on.
+14.1 Question-Level Analytics
+The questions table maintains running counters (times_answered, times_correct) updated on every answer attempt. This enables:
+Identification of questions with suspiciously low correct rates (<20%) — likely poorly worded
+Identification of questions never attempted — may indicate they are too obscure or hidden in the UI flow
+Difficulty calibration: if a difficulty-3 question is answered correctly 90% of the time, it should be reclassified
+14.2 Session-Level Analytics
+Tracked automatically via quiz_sessions and answer_attempts:
+Session length: Average number of questions per session — if it drops, investigate UI or fatigue
+Completion rate: Sessions marked completed vs expired — high expiry rate signals UX issues
+Category distribution: Which domains are users spending time in vs avoiding
+Time-of-day patterns: When is the user most active — useful for future streak features
+14.3 Mastery Health Metrics
+Topics in STRUGGLING state: Count of topics per user in worst mastery state — the primary product health metric
+Mastery progression rate: Average sessions to move from ATTEMPTED to COMPETENT per topic
+Review Queue backlog: If this grows continuously, the session format is not reinforcing enough
+15. Phased Build Plan
+Development proceeds in six phases. No phase begins until the previous phase is stable. Stability means: core features work, tests pass, and the system behaves according to this document.
+Finalise Product Requirements (this document)
+Define PostgreSQL schema and write Alembic migration files
+Define API contract (FastAPI route signatures + Pydantic models)
+Create question seed set: 50 approved questions across 5 categories
+Set up monorepo structure: /backend and /frontend directories
+FastAPI project setup with environment config and logging
+Alembic migrations: all 7 entities created in PostgreSQL
+Auth: register, login, JWT issue and validate endpoints
+Question CRUD: create, read, filter by category/difficulty/status
+Quiz Session endpoints: create session, serve next question
+Answer submission: evaluate, compute mastery signal, update attempt log
+Progress tracking: update mastery profile on every answer
+Mastery State Machine: implement transitions in Domain Layer
+Unit tests: Pytest for Domain Layer (evaluation, state machine, priority score)
+React project setup: Vite + Tailwind + React Query + Zustand + React Router
+Auth screens: Login and Register with JWT storage
+Dashboard screen: mastery summary tiles, category list, session start CTA
+Quiz screen: question display, option selection, answer submission, evaluation reveal
+Results screen: accuracy score, time taken, weak topics identified
+API integration: connect all screens to Phase 2 endpoints
+Basic responsive layout: desktop first, mobile-friendly
+Implement Priority Score formula in Adaptive Selector (Domain Layer)
+Wire Adaptive Mode: session creation uses Adaptive Selector for question selection
+Implement Review Queue: build/rebuild logic after each session completion
+Review Session: create session type, serve from queue, mark items reviewed
+Review screen: UI for review sessions with queue position indicator
+Struggling topic override rule: force STRUGGLING topics into next question slot
+Integration tests: full session cycle from creation to review queue population
+Question health analytics: flag low correct-rate questions
+Analytics summary endpoint: session stats, mastery health, backlog size
+Admin question view: question bank browser with health indicators
+Hint system: optional hint reveal before answer with penalty signal
+Confidence rating: user rates confidence after each answer (for future ML)
+Progress charts: mastery state history per topic over time
+Performance: query optimisation, add indexes on high-frequency columns
+Error handling: structured error responses, frontend error boundaries
+AI question generation: prompt LLM with category + difficulty + existing question examples
+Generated questions enter as draft status — require approval before entering sessions
+Explanation enhancement: AI rewrites sparse explanations using question context
+Open-ended answer evaluation: text input mode with LLM semantic scoring
+Personalised explanations: AI adapts explanation depth to user mastery level
+Question deduplication: embedding similarity check before adding new questions
+16. Content Seed Plan
+Before the backend is wired, 50 approved questions must exist across 5 domains. This is the minimum viable content set to validate whether the app is actually teaching.
+Difficulty distribution for the seed set:
+Difficulty 2 (Foundational): 20 questions — ensures early wins and builds confidence
+Difficulty 3 (Intermediate): 20 questions — the core challenge layer
+Difficulty 4 (Advanced): 10 questions — tests deeper understanding
+End of Document
+ARCHITEKT v1.0 — Product Requirements & System Architecture

@@ -6,3 +6,6 @@ alembic
 pydantic
 bcrypt
 PyJWT
+pytest
+pytest-asyncio
+httpx
