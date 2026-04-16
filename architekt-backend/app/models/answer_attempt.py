@@ -6,7 +6,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
-from app.models.enums import MasterySignal
+from app.models.enums import MasterySignal, SyncStatus
 
 
 class AnswerAttempt(Base):
@@ -30,3 +30,6 @@ class AnswerAttempt(Base):
         nullable=True,
     )
     answered_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    client_attempt_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), unique=True, nullable=True)
+    sync_status: Mapped[SyncStatus | None] = mapped_column(SQLEnum(SyncStatus, name="sync_status"), nullable=True)
+    synced_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

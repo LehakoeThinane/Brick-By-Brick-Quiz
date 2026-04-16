@@ -45,3 +45,9 @@ class MasteryState(str, Enum):
     DEVELOPING = "DEVELOPING"
     COMPETENT = "COMPETENT"
     MASTERED = "MASTERED"
+
+
+class SyncStatus(str, Enum):
+    PENDING = "pending"
+    SYNCED = "synced"
+    FAILED = "failed"
