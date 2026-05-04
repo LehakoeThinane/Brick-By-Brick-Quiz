@@ -53,6 +53,10 @@ async function request<T>(
 }
 
 // Auth
+export async function getMe(token: string) {
+  return request<{ id: string; email: string; display_name: string | null }>('/auth/me', { token });
+}
+
 export async function login(tokenPayload: { email: string; password: string }) {
   const data = await request<{ access_token: string }>(`/auth/login`, {
     method: "POST",

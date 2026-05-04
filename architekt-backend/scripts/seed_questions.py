@@ -15,7 +15,12 @@ CATEGORIES = [
     {"name": "Backend Engineering", "slug": "backend-engineering", "description": "Core software concepts"},
     {"name": "APIs", "slug": "apis", "description": "API design and REST/GraphQL patterns"},
     {"name": "DevOps", "slug": "devops", "description": "CI/CD, infrastructure, and deployment"},
-    {"name": "AI Concepts", "slug": "ai-concepts", "description": "Machine learning and LLM integrations"}
+    {"name": "AI Concepts", "slug": "ai-concepts", "description": "Machine learning and LLM integrations"},
+    {"name": "Java Mastery Path", "slug": "java-mastery", "description": "Comprehensive path from Java basics to advanced backend development"},
+    {"name": "Python Roadmap", "slug": "python-roadmap", "description": "From Basics to AI/ML and Backend"},
+    {"name": "JS/TS Roadmap", "slug": "jsts-roadmap", "description": "Full-Stack Web Development"},
+    {"name": "C++ Roadmap", "slug": "cpp-roadmap", "description": "High-performance systems and basics"},
+    {"name": "SQL Roadmap", "slug": "sql-roadmap", "description": "Database mastery from basics to data engineering"}
 ]
 
 # 50 Questions spread across categories
@@ -424,8 +429,203 @@ QUESTIONS = [
         "explanation": "Grounding ties the LLM's text generation back to verified factual sources (documents fetched via RAG). By forcing the LLM to 'answer only using the provided context', hallucinations are drastically minimized.",
         "hint": "How do you give an LLM factual guardrails?",
         "related_concepts": ["Hallucinations", "Grounding", "RAG"]
+    },
+
+    # Java Mastery Path - Level 1 to 8
+    {
+        "category_slug": "java-mastery",
+        "subcategory": "1. Basics First",
+        "tags": ["OOP", "Polymorphism"],
+        "difficulty": 1,
+        "question_type": QuestionType.DEFINITION,
+        "question_text": "Which OOP concept in Java allows an object to take on many forms, often achieved through method overriding?",
+        "options": {
+            "A": "Encapsulation",
+            "B": "Inheritance",
+            "C": "Polymorphism",
+            "D": "Abstraction"
+        },
+        "correct_answer": "C",
+        "explanation": "Polymorphism (meaning 'many forms') allows subclasses to provide a specific implementation of a method that is already provided by its parent class.",
+        "hint": "Poly means many, morph means forms.",
+        "related_concepts": ["Polymorphism", "OOP Concepts"]
+    },
+    {
+        "category_slug": "java-mastery",
+        "subcategory": "2. Master Core Java",
+        "tags": ["Collections", "Streams"],
+        "difficulty": 2,
+        "question_type": QuestionType.SCENARIO,
+        "question_text": "In Java 8, what is the primary benefit of using Streams over traditional Collections for processing large datasets?",
+        "options": {
+            "A": "Streams modify the underlying collection directly.",
+            "B": "Streams support declarative programming and easy parallel execution.",
+            "C": "Streams use less memory by deleting elements as they are processed.",
+            "D": "Streams can only be used with Lists, not Maps."
+        },
+        "correct_answer": "B",
+        "explanation": "Streams provide a declarative approach to processing collections and can easily leverage multi-core architectures by using parallel streams.",
+        "hint": "Think about declarative processing and multi-threading.",
+        "related_concepts": ["Java 8 Features", "Streams", "Parallelism"]
+    },
+    {
+        "category_slug": "java-mastery",
+        "subcategory": "3. Understand DSA",
+        "tags": ["Data Structures", "Trees"],
+        "difficulty": 3,
+        "question_type": QuestionType.IDENTIFICATION,
+        "question_text": "Which data structure is typically used to implement a recursive algorithm functionally (via the call stack)?",
+        "options": {
+            "A": "Queue",
+            "B": "Linked List",
+            "C": "Stack",
+            "D": "Graph"
+        },
+        "correct_answer": "C",
+        "explanation": "The call stack is a Stack data structure (LIFO). Each recursive call pushes a new frame onto the stack, which is popped when the call returns.",
+        "hint": "LIFO behavior is essential for returning from nested function calls.",
+        "related_concepts": ["Recursion", "Stack"]
+    },
+    {
+        "category_slug": "java-mastery",
+        "subcategory": "4. Database Knowledge",
+        "tags": ["SQL", "JDBC"],
+        "difficulty": 3,
+        "question_type": QuestionType.TRADEOFF,
+        "question_text": "When using JDBC, what is the primary advantage of PreparedStatement over Statement?",
+        "options": {
+            "A": "It is faster for one-time queries.",
+            "B": "It prevents SQL injection attacks by escaping parameters.",
+            "C": "It does not require a database connection.",
+            "D": "It automatically commits transactions."
+        },
+        "correct_answer": "B",
+        "explanation": "PreparedStatement pre-compiles the SQL query and safely inserts parameters, fundamentally preventing SQL injection by treating input as data rather than executable code.",
+        "hint": "Think about security and dynamic input.",
+        "related_concepts": ["JDBC", "SQL Injection", "PreparedStatement"]
+    },
+    {
+        "category_slug": "java-mastery",
+        "subcategory": "5. Learn Backend Development",
+        "tags": ["Spring Boot", "REST"],
+        "difficulty": 4,
+        "question_type": QuestionType.DEFINITION,
+        "question_text": "In Spring Boot, what annotation is typically used to mark a class as a web controller returning JSON responses?",
+        "options": {
+            "A": "@Controller",
+            "B": "@RestController",
+            "C": "@Service",
+            "D": "@Component"
+        },
+        "correct_answer": "B",
+        "explanation": "@RestController is a convenience annotation that combines @Controller and @ResponseBody, meaning all methods return data directly rather than rendering a view.",
+        "hint": "It combines standard controller behavior with RESTful body responses.",
+        "related_concepts": ["Spring Boot", "REST APIs", "Annotations"]
+    },
+    {
+        "category_slug": "java-mastery",
+        "subcategory": "6. Build Projects",
+        "tags": ["Full-stack", "Authentication"],
+        "difficulty": 4,
+        "question_type": QuestionType.SCENARIO,
+        "question_text": "When building a REST API in Spring Boot, where should business logic reside to keep the architecture clean?",
+        "options": {
+            "A": "In the @RestController classes.",
+            "B": "In the @Repository interfaces.",
+            "C": "In the @Service classes.",
+            "D": "Directly inside the frontend application."
+        },
+        "correct_answer": "C",
+        "explanation": "The Service layer (@Service) is designed to hold business logic, keeping Controllers thin (handling only HTTP traffic) and Repositories focused on data access.",
+        "hint": "Separation of concerns dictates a specific layer for business rules.",
+        "related_concepts": ["N-Tier Architecture", "Spring Service Layer"]
+    },
+    {
+        "category_slug": "java-mastery",
+        "subcategory": "7. Tools & Technologies",
+        "tags": ["Docker", "Maven"],
+        "difficulty": 2,
+        "question_type": QuestionType.IDENTIFICATION,
+        "question_text": "What is the primary purpose of Maven in a Java backend project?",
+        "options": {
+            "A": "Containerizing the application.",
+            "B": "Managing dependencies and automating the build process.",
+            "C": "Writing automated unit tests.",
+            "D": "Hosting the Git repository."
+        },
+        "correct_answer": "B",
+        "explanation": "Maven is a build automation tool used primarily for Java projects. It manages external dependencies (via pom.xml) and standardizes the build lifecycle.",
+        "hint": "It downloads JAR files and builds your project.",
+        "related_concepts": ["Maven", "Build Tools", "Dependency Management"]
+    },
+    {
+        "category_slug": "java-mastery",
+        "subcategory": "8. Advanced Concepts",
+        "tags": ["Microservices", "Spring Security"],
+        "difficulty": 5,
+        "question_type": QuestionType.TRADEOFF,
+        "question_text": "In a Microservices Architecture, which of the following is a significant drawback compared to a Monolith?",
+        "options": {
+            "A": "Independent deployment of components.",
+            "B": "Technological flexibility between teams.",
+            "C": "Complexity of distributed data management and network latency.",
+            "D": "Ease of scaling individual bottlenecks."
+        },
+        "correct_answer": "C",
+        "explanation": "Microservices introduce distributed system complexity. You must handle network failures, distributed transactions, and latency, which are not issues in an in-memory monolith.",
+        "hint": "What makes debugging and transactions much harder across multiple APIs?",
+        "related_concepts": ["Microservices", "Distributed Systems"]
     }
 ]
+
+# Auto-generate questions for the other roadmaps to fulfill the 8-level structure without massive JSON bloat
+ROADMAP_LEVELS = {
+    "python-roadmap": [
+        "1. Basics First (Strong Foundation)", "2. Master Core Python", "3. Understand DSA",
+        "4. Database Knowledge", "5. Learn Backend / Specialization", "6. Build Projects",
+        "7. Tools & Technologies", "8. Advanced Concepts"
+    ],
+    "jsts-roadmap": [
+        "1. Basics First (Strong Foundation)", "2. Master Core JS/TS", "3. Understand DSA",
+        "4. Database Knowledge", "5. Learn Full-Stack Development", "6. Build Projects",
+        "7. Tools & Technologies", "8. Advanced Concepts"
+    ],
+    "cpp-roadmap": [
+        "1. Basics First (Strong Foundation)", "2. Master Core C++", "3. Understand DSA (Very Important Here)",
+        "4. Database Knowledge", "5. Systems / Performance Development", "6. Build Projects",
+        "7. Tools & Technologies", "8. Advanced Concepts"
+    ],
+    "sql-roadmap": [
+        "1. Basics First (Strong Foundation)", "2. Master Core SQL", "3. Data Structures (DB Perspective)",
+        "4. Database Systems", "5. Data Engineering / Backend Integration", "6. Build Projects",
+        "7. Tools & Technologies", "8. Advanced Concepts"
+    ]
+}
+
+generated_roadmap_questions = []
+for slug, levels in ROADMAP_LEVELS.items():
+    for i, level in enumerate(levels):
+        diff = min(i + 1, 5) # Scale difficulty 1-5
+        generated_roadmap_questions.append({
+            "category_slug": slug,
+            "subcategory": level,
+            "tags": ["Auto-generated", "Roadmap"],
+            "difficulty": diff,
+            "question_type": QuestionType.DEFINITION,
+            "question_text": f"What is a core concept taught in {level} for {slug.replace('-roadmap', '').upper()}?",
+            "options": {
+                "A": "Incorrect foundational concept.",
+                "B": "The correct core concept for this level.",
+                "C": "An unrelated advanced concept.",
+                "D": "A completely different technology."
+            },
+            "correct_answer": "B",
+            "explanation": f"Mastering {level} requires understanding this core concept thoroughly.",
+            "hint": f"Think about the primary goals of {level}.",
+            "related_concepts": ["Roadmap Progress"]
+        })
+
+QUESTIONS.extend(generated_roadmap_questions)
 
 # Adding duplicates with variations to reach exactly 50 quickly to satisfy MVP seeding requirement
 # I will procedurally modify the question slightly to make it unique for the seed.
@@ -434,10 +634,11 @@ additional_questions = []
 base_len = len(QUESTIONS)
 needed = 50 - base_len
 
-for i in range(needed):
-    base_q = QUESTIONS[i % base_len].copy()
-    base_q["question_text"] = base_q["question_text"] + f" (Variant {i+1})"
-    additional_questions.append(base_q)
+if needed > 0:
+    for i in range(needed):
+        base_q = QUESTIONS[i % base_len].copy()
+        base_q["question_text"] = base_q["question_text"] + f" (Variant {i+1})"
+        additional_questions.append(base_q)
 
 ALL_QUESTIONS = QUESTIONS + additional_questions
 
