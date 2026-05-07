@@ -1,0 +1,5 @@
+{
+  "buildCommand": "cd architekt-frontend && npm install && npm run build",
+  "outputDirectory": "architekt-frontend/dist",
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}
