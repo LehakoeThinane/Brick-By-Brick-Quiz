@@ -79,7 +79,7 @@ def get_next_question(db: Session, *, user_id: uuid.UUID, session_id: uuid.UUID)
         complete_session(db, session)
         rebuild_review_queue(db, user_id=user_id)
         db.commit()
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No question available")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Session completed")
 
     return NextQuestionResponse(
         session_id=session.id,
